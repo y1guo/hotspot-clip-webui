@@ -26,22 +26,40 @@ function Copyright() {
 }
 
 function FileInput(props: any) {
-  const handleChangeFileArray = (newValue: File[]) => {
-    // find video files
-    const videoFileArray = newValue.filter((file) => {
-      return file.type === "video/mp4" || file.type === "video/x-flv";
+  const handleChangeFileArray = (fileList: File[]) => {
+    // group video and danmaku files into recordings by filename
+    const recordingMap = new Map<string, Recording>();
+    fileList.forEach((file) => {
+      // name without extension, file might have multiple '.' in name
+      const name = file.name.split(".").slice(0, -1).join(".");
+      const type = file.type;
+      const recording = recordingMap.get(name);
+      if (recording) {
+        if (type === "video/mp4" || type === "video/x-flv") {
+          recording.video = file;
+        } else if (type === "text/xml") {
+          recording.danmaku = file;
+        }
+      } else {
+        if (type === "video/mp4" || type === "video/x-flv") {
+          recordingMap.set(name, { name: name, video: file, danmaku: null });
+        } else if (type === "text/xml") {
+          recordingMap.set(name, { name: name, video: null, danmaku: file });
+        }
+      }
     });
-    // find danmaku files
-    const danmakuFileArray = newValue.filter((file) => {
-      return file.type === "text/xml";
+    // convert recording map to array
+    const recordingArray: Recording[] = [];
+    recordingMap.forEach((recording) => {
+      recordingArray.push(recording);
     });
-    // update video and danmaku arraies in appData
+    // update recording arraies in appData
     props.setAppData((appData: AppData) => ({
       ...appData,
-      videoFileArray: videoFileArray,
-      danmakuFileArray: danmakuFileArray,
+      recordingArray: recordingArray,
     }));
   };
+
   return (
     <MuiFileInput multiple onChange={handleChangeFileArray} hideSizeText />
   );
@@ -52,7 +70,7 @@ function FilePanelItem(props: any) {
   const handleClick = () => {
     props.setAppData((appData: AppData) => ({
       ...appData,
-      selectedVideo: props.file,
+      selectedRecording: props.recording,
     }));
   };
 
@@ -60,7 +78,18 @@ function FilePanelItem(props: any) {
     <ListItem>
       <ListItemButton onClick={handleClick}>
         <ListItemText
-          primary={props.file.name + " (" + props.file.size + " B)"}
+          primary={
+            props.recording.name +
+            " (" +
+            (props.recording.video
+              ? props.recording.video.size + " B"
+              : "No Video") +
+            " + " +
+            (props.recording.danmaku
+              ? props.recording.danmaku.size + " B"
+              : "No Danmaku") +
+            ")"
+          }
         />
       </ListItemButton>
     </ListItem>
@@ -70,65 +99,114 @@ function FilePanelItem(props: any) {
 function FilePanel(props: any) {
   return (
     <List>
-      {props.fileArray.map((file: File, i: number) => (
-        <FilePanelItem file={file} key={i} setAppData={props.setAppData} />
+      {props.recordingArray.map((recording: Recording, i: number) => (
+        <FilePanelItem
+          key={i}
+          recording={recording}
+          setAppData={props.setAppData}
+        />
       ))}
     </List>
   );
 }
 
 function VideoPlayer(props: any) {
-  if (document.getElementById("dplayer")) {
+  const [dplayer, setDplayer] = React.useState<DPlayer | null>(null);
+  const danmaku = {
+    id: "9E2E3368B56CDBB4",
+    token: "tokendemo",
+    api: "https://api.prprpr.me/dplayer/",
+    addition: ["https://api.prprpr.me/dplayer/v3/bilibili?aid=4157142"],
+    user: "DIYgod",
+    bottom: "15%",
+  };
+  React.useEffect(() => {
     const dp = new DPlayer({
       container: document.getElementById("dplayer"),
       screenshot: true,
       video: {
-        // url: "92613_20230329_095623_010529.mp4",
-        url: props.video ? URL.createObjectURL(props.video) : "",
+        url: "",
       },
-      // danmaku: {
-      //   id: "demo",
-      //   api: "https://api.prprpr.me/dplayer/",
-      // },
+      danmaku: danmaku,
     });
-  }
+    setDplayer(dp);
+  }, []);
+
+  React.useEffect(() => {
+    if (props.recording) {
+      dplayer?.switchVideo(
+        {
+          url: URL.createObjectURL(props.recording.video),
+        },
+        danmaku
+      );
+    }
+  }, [props.recording]);
+
+  React.useEffect(() => {
+    if (dplayer) {
+      console.log(props.test);
+      dplayer.notice("test notice", 1000, 1.0);
+      dplayer.danmaku.draw({
+        text: "vsfdjn s vu s vsfdun sdfvnsdfuhvn sdfiubs ",
+        color: "#f00",
+        type: "right",
+      });
+      dplayer.danmaku.show();
+    }
+  }, [props.test]);
+
   return <div id="dplayer"></div>;
 }
 
+interface Recording {
+  name: string;
+  video: File | null;
+  danmaku: File | null;
+}
+
 interface AppData {
-  videoFileArray: File[];
-  danmakuFileArray: File[];
-  selectedVideo: File | null;
-  selectedDanmaku: File | null;
+  recordingArray: Recording[];
+  selectedRecording: Recording | null;
+  dplayer: DPlayer | null;
 }
 
 export default function App() {
   const [appData, setAppData] = React.useState<AppData>({
-    videoFileArray: [],
-    danmakuFileArray: [],
-    selectedVideo: null,
-    selectedDanmaku: null,
+    recordingArray: [],
+    selectedRecording: null,
+    dplayer: null,
   });
 
+  const [test, setTest] = React.useState(0);
+
   return (
-    <Container maxWidth="sm">
+    <Container maxWidth="lg">
       <Box>
         Select Videos (flv, mp4) and Danmaku Files (xml):
         <FileInput setAppData={setAppData} />
       </Box>
       <Box>
-        <FilePanel fileArray={appData.videoFileArray} setAppData={setAppData} />
         <FilePanel
-          fileArray={appData.danmakuFileArray}
+          recordingArray={appData.recordingArray}
           setAppData={setAppData}
         />
       </Box>
       <Box>
         <VideoPlayer
-          video={appData.selectedVideo}
-          danmaku={appData.selectedDanmaku}
+          recording={appData.selectedRecording}
+          setAppData={setAppData}
+          test={test}
         />
       </Box>
+      <Button
+        variant="contained"
+        onClick={() => {
+          setTest(test + 1);
+        }}
+      >
+        test
+      </Button>
       <Copyright />
     </Container>
   );
