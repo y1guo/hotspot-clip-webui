@@ -1,0 +1,52 @@
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+        "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+        "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+    font-size: 16px;
+}
+
+/* html cover full screen including status bar and home bar */
+html,
+body,
+#root {
+    width: 100%;
+    height: 100%;
+}
+html {
+    height: calc(100% + env(safe-area-inset-top));
+}
+
+/* Prevent window scroll bounce effect
+ * see https://stackoverflow.com/questions/59193062
+ * works together with another part in javascript that cancels the scroll animation
+ */
+body {
+    position: fixed;
+}
+
+/* end */
+
+/* code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+} */
+
+video {
+    position: absolute;
+    width: 1600px;
+    height: 900px;
+}
+
+#video-container div {
+    z-index: 2147483647 ;
+}
